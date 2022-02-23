@@ -86,6 +86,63 @@ class BaseDenseConvolutionDown(BaseConvolution):
             setattr(new_data, "sampling_id_{}".format(self._index), idx[:, :, 0])
         return new_data
 
+class BaseDenseConvolutionDownMod(BaseConvolution):
+    """Multiscale convolution down (also supports single scale). Convolution kernel is shared accross the scales
+
+    Arguments:
+        sampler  -- Strategy for sampling the input clouds
+        neighbour_finder -- Multiscale strategy for finding neighbours
+    """
+
+    CONV_TYPE = ConvolutionFormat.DENSE.value
+
+    def __init__(self, sampler, neighbour_finder: BaseMSNeighbourFinder, *args, **kwargs):
+        super(BaseDenseConvolutionDownMod, self).__init__(sampler, neighbour_finder, *args, **kwargs)
+        self._index = kwargs.get("index", None)
+        self._save_sampling_id = kwargs.get("save_sampling_id", None)
+
+    def conv(self, x, pos, new_pos, radius_idx, scale_idx):
+        """Implements a Dense convolution where radius_idx represents
+        the indexes of the points in x and pos to be agragated into the new feature
+        for each point in new_pos
+
+        Arguments:
+            x -- Previous features [B, C, N]
+            pos -- Previous positions [B, N, 3]
+            new_pos  -- Sampled positions [B, npoints, 3]
+            radius_idx -- Indexes to group [B, npoints, nsample]
+            scale_idx -- Scale index in multiscale convolutional layers
+        """
+        raise NotImplementedError
+
+    def forward(self, data, sample_idx=None, **kwargs):
+        """
+        Parameters
+        ----------
+        data: Data
+            x -- Previous features [B, C, N]
+            pos -- Previous positions [B, N, 3]
+        sample_idx: Optional[torch.Tensor]
+            can be used to shortcut the sampler [B,K]
+        """
+        x, pos = data.x, data.pos
+        if sample_idx:
+            idx = sample_idx
+        else:
+            idx, loss = self.sampler(pos, kwargs["prefix"])
+        idx = idx.unsqueeze(-1).repeat(1, 1, pos.shape[-1]).long()
+        new_pos = pos.gather(1, idx)
+
+        ms_x = []
+        for scale_idx in range(self.neighbour_finder.num_scales):
+            radius_idx = self.neighbour_finder(pos, new_pos, scale_idx=scale_idx)
+            ms_x.append(self.conv(x, pos, new_pos, radius_idx, scale_idx))
+        new_x = torch.cat(ms_x, 1)
+
+        new_data = Data(pos=new_pos, x=new_x)
+        if self._save_sampling_id:
+            setattr(new_data, "sampling_id_{}".format(self._index), idx[:, :, 0])
+        return new_data, loss
 
 class BaseDenseConvolutionUp(BaseConvolution):
 

@@ -128,10 +128,10 @@ torch-geometric==1.7.2; python_version >= "3.6"
 torch-points-kernels==0.7.0
 torch-scatter==2.0.8; python_version >= "3.6"
 torch-sparse==0.6.12; python_version >= "3.6"
-torch==1.8.1; python_full_version >= "3.6.2"
+# torch==1.8.1; python_full_version >= "3.6.2"
 torchfile==0.1.0
 torchnet==0.0.4
-torchvision==0.9.1; python_version >= "3.0"
+# torchvision==0.9.1; python_version >= "3.0"
 tornado==6.1; python_full_version >= "3.6.1" and python_version >= "3.7"
 tqdm==4.62.3; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.4.0")
 traitlets==5.1.0; python_full_version >= "3.6.1" and python_version >= "3.7"

@@ -4,11 +4,12 @@ import torch.nn.functional as F
 import torch_points_kernels as tp
 
 from torch_points3d.core.base_conv.dense import *
-from torch_points3d.core.spatial_ops import DenseRadiusNeighbourFinder, DenseFPSSampler
+from torch_points3d.core.spatial_ops import DenseRadiusNeighbourFinder, ConditionalFPS
+
 from torch_points3d.utils.model_building_utils.activation_resolver import get_activation
 
 
-class PointNetMSGDown(BaseDenseConvolutionDown):
+class PointNetMSGDown(BaseDenseConvolutionDownMod):
     def __init__(
         self,
         npoint=None,
@@ -23,7 +24,7 @@ class PointNetMSGDown(BaseDenseConvolutionDown):
     ):
         assert len(radii) == len(nsample) == len(down_conv_nn)
         super(PointNetMSGDown, self).__init__(
-            DenseFPSSampler(num_to_sample=npoint), DenseRadiusNeighbourFinder(radii, nsample), **kwargs
+            ConditionalFPS(num_to_sample=npoint), DenseRadiusNeighbourFinder(radii, nsample), **kwargs
         )
         self.use_xyz = use_xyz
         self.npoint = npoint
