@@ -99,6 +99,47 @@ class BaseMSConvolutionDown(BaseConvolution):
         copy_from_to(data, batch_obj)
         return batch_obj
 
+class BaseMSConvolutionDownMod(BaseConvolution):
+    """Multiscale convolution down (also supports single scale). Convolution kernel is shared accross the scales
+
+    Arguments:
+        sampler  -- Strategy for sampling the input clouds
+        neighbour_finder -- Multiscale strategy for finding neighbours
+    """
+
+    def __init__(self, sampler, neighbour_finder: BaseMSNeighbourFinder, *args, **kwargs):
+        super(BaseMSConvolutionDownMod, self).__init__(sampler, neighbour_finder, *args, **kwargs)
+
+        self._index = kwargs.get("index", None)
+
+    def conv(self, x, pos, edge_index, batch):
+        raise NotImplementedError
+
+    def forward(self, data, **kwargs):
+        batch_obj = Batch()
+        x, pos, batch = data.x, data.pos, data.batch
+        idx, loss = self.sampler(pos, batch)
+        batch_obj.idx = idx
+        batch_obj.sloss = loss
+
+        ms_x = []
+        for scale_idx in range(self.neighbour_finder.num_scales):
+            row, col = self.neighbour_finder(
+                pos,
+                pos[idx],
+                batch_x=batch,
+                batch_y=batch[idx],
+                scale_idx=scale_idx,
+            )
+            edge_index = torch.stack([col, row], dim=0)
+
+            ms_x.append(self.conv(x, (pos, pos[idx]), edge_index, batch))
+
+        batch_obj.x = torch.cat(ms_x, -1)
+        batch_obj.pos = pos[idx]
+        batch_obj.batch = batch[idx]
+        copy_from_to(data, batch_obj)
+        return batch_obj
 
 class BaseConvolutionUp(BaseConvolution):
     def __init__(self, neighbour_finder, *args, **kwargs):

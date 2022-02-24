@@ -14,7 +14,7 @@ from .base import Segmentation_MP
 from torch_points3d.datasets.segmentation import IGNORE_LABEL
 
 log = logging.getLogger(__name__)
-
+import pdb
 
 class PointNet2_D(UnetBasedModel):
     r"""
@@ -94,6 +94,7 @@ class PointNet2_D(UnetBasedModel):
             x -- Features [B, C, N]
             pos -- Points [B, N, 3]
         """
+        pdb.set_trace()
         data = self.model(self.input)
         last_feature = data.x
         if self._use_category:

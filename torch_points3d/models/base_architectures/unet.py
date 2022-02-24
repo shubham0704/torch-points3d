@@ -300,6 +300,7 @@ class UnetSkipConnectionBlock(nn.Module):
             data = (data_out, data)
             return self.up(data, **kwargs)
         else:
+            #TODO: check if your loss travels through UNet Layer
             data_out = self.down(data, **kwargs)
             data_out2 = self.submodule(data_out, **kwargs)
             data = (data_out2, data)

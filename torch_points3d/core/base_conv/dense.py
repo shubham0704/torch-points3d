@@ -128,6 +128,7 @@ class BaseDenseConvolutionDownMod(BaseConvolution):
         x, pos = data.x, data.pos
         if sample_idx:
             idx = sample_idx
+            loss = torch.Tensor([0]).to(x.device)
         else:
             idx, loss = self.sampler(pos, kwargs["prefix"])
         idx = idx.unsqueeze(-1).repeat(1, 1, pos.shape[-1]).long()
@@ -139,10 +140,10 @@ class BaseDenseConvolutionDownMod(BaseConvolution):
             ms_x.append(self.conv(x, pos, new_pos, radius_idx, scale_idx))
         new_x = torch.cat(ms_x, 1)
 
-        new_data = Data(pos=new_pos, x=new_x)
+        new_data = Data(pos=new_pos, x=new_x, sloss=loss)
         if self._save_sampling_id:
             setattr(new_data, "sampling_id_{}".format(self._index), idx[:, :, 0])
-        return new_data, loss
+        return new_data
 
 class BaseDenseConvolutionUp(BaseConvolution):
 
