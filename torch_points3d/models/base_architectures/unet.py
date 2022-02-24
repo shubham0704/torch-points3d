@@ -22,7 +22,7 @@ from torch_points3d.datasets.base_dataset import BaseDataset
 from torch_points3d.models.base_model import BaseModel
 from torch_points3d.core.common_modules.base_modules import Identity
 from torch_points3d.utils.config import is_list
-
+import pdb
 
 log = logging.getLogger(__name__)
 
@@ -300,7 +300,7 @@ class UnetSkipConnectionBlock(nn.Module):
             data = (data_out, data)
             return self.up(data, **kwargs)
         else:
-            #TODO: check if your loss travels through UNet Layer
+            # Location 1
             data_out = self.down(data, **kwargs)
             data_out2 = self.submodule(data_out, **kwargs)
             data = (data_out2, data)

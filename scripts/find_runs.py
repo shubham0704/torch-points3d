@@ -96,7 +96,6 @@ def main(args):
 
     if args.pdb:
         import pdb
-
         pdb.set_trace()
 
 

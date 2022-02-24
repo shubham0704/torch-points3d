@@ -43,6 +43,7 @@ class PointNetMSGDown(BaseDenseConvolutionDownMod):
             grouped_pos /= self.radii[scale_idx]
 
         if x is not None:
+            # TODO: fix error here
             grouped_features = tp.grouping_operation(x, idx)
             if self.use_xyz:
                 new_features = torch.cat([grouped_pos, grouped_features], dim=1)  # (B, C + 3, npoint, nsample)

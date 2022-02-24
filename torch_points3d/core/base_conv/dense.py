@@ -24,7 +24,7 @@ from torch_points3d.core.common_modules.dense_modules import MLP2D
 
 from torch_points3d.utils.enums import ConvolutionFormat
 from torch_points3d.utils.model_building_utils.activation_resolver import get_activation
-
+import pdb
 #################### THOSE MODULES IMPLEMENTS THE BASE DENSE CONV API ############################
 
 
@@ -125,14 +125,23 @@ class BaseDenseConvolutionDownMod(BaseConvolution):
         sample_idx: Optional[torch.Tensor]
             can be used to shortcut the sampler [B,K]
         """
+        # Location 2
         x, pos = data.x, data.pos
+        # print(x.shape)
         if sample_idx:
             idx = sample_idx
             loss = torch.Tensor([0]).to(x.device)
         else:
-            idx, loss = self.sampler(pos, kwargs["prefix"])
+            if "old_x" not in data:
+                old_x = x
+            else:
+                old_x = data.old_x
+
+            idx, loss = self.sampler(old_x, pos)
         idx = idx.unsqueeze(-1).repeat(1, 1, pos.shape[-1]).long()
         new_pos = pos.gather(1, idx)
+        # pdb.set_trace()
+        old_x = old_x.transpose(1, 2).gather(1, idx).transpose(1, 2)
 
         ms_x = []
         for scale_idx in range(self.neighbour_finder.num_scales):
@@ -140,7 +149,15 @@ class BaseDenseConvolutionDownMod(BaseConvolution):
             ms_x.append(self.conv(x, pos, new_pos, radius_idx, scale_idx))
         new_x = torch.cat(ms_x, 1)
 
-        new_data = Data(pos=new_pos, x=new_x, sloss=loss)
+        if "sloss" not in data:
+            sloss = loss[0]
+        else:
+            sloss = loss[0] + data.sloss
+        
+        # here we try to maintain to original normals information 
+        # across layers
+
+        new_data = Data(pos=new_pos, x=new_x, old_x=old_x, sloss=sloss)
         if self._save_sampling_id:
             setattr(new_data, "sampling_id_{}".format(self._index), idx[:, :, 0])
         return new_data
@@ -165,7 +182,7 @@ class BaseDenseConvolutionUp(BaseConvolution):
             data -- (data, data_skip)
         """
         data, data_skip = data
-        pos, x = data.pos, data.x
+        pos, x, sloss = data.pos, data.x, data.sloss
         pos_skip, x_skip = data_skip.pos, data_skip.x
 
         new_features = self.conv(pos, pos_skip, x)
@@ -178,7 +195,7 @@ class BaseDenseConvolutionUp(BaseConvolution):
         if hasattr(self, "nn"):
             new_features = self.nn(new_features)
 
-        return Data(x=new_features.squeeze(-1), pos=pos_skip)
+        return Data(x=new_features.squeeze(-1), pos=pos_skip, sloss=sloss)
 
 
 class DenseFPModule(BaseDenseConvolutionUp):
@@ -225,7 +242,7 @@ class GlobalDenseBaseModule(torch.nn.Module):
         return self._nb_params
 
     def forward(self, data, **kwargs):
-        x, pos = data.x, data.pos
+        x, pos, sloss = data.x, data.pos, data.sloss
         pos_flipped = pos.transpose(1, 2).contiguous()
 
         x = self.nn(torch.cat([x, pos_flipped], dim=1).unsqueeze(-1))
@@ -239,7 +256,7 @@ class GlobalDenseBaseModule(torch.nn.Module):
 
         pos = None  # pos.mean(1).unsqueeze(1)
         x = x.unsqueeze(-1)
-        return Data(x=x, pos=pos)
+        return Data(x=x, pos=pos, sloss=sloss)
 
     def __repr__(self):
         return "{}: {} (aggr={}, {})".format(self.__class__.__name__, self.nb_params, self._aggr, self.nn)

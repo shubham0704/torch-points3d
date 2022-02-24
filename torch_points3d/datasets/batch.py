@@ -1,6 +1,6 @@
 import torch
 from torch_geometric.data import Data
-
+import pdb
 
 class SimpleBatch(Data):
     r""" A classic batch object wrapper with :class:`torch_geometric.data.Data` being the
@@ -32,12 +32,14 @@ class SimpleBatch(Data):
 
         for key in keys:
             batch[key] = []
-
+        # keyset = set()
         for _, data in enumerate(data_list):
             for key in data.keys:
+                # keyset.add(key)
                 item = data[key]
                 batch[key].append(item)
-
+        # print(keyset)
+        # pdb.set_trace()
         for key in batch.keys:
             item = batch[key][0]
             if (

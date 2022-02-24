@@ -20,7 +20,7 @@ import pandas as pd
 import pickle
 import gdown
 import shutil
-
+import pdb
 from torch_points3d.datasets.samplers import BalancedRandomSampler
 import torch_points3d.core.data_transform as cT
 from torch_points3d.datasets.base_dataset import BaseDataset
@@ -256,10 +256,11 @@ class S3DISOriginalFused(InMemoryDataset):
     form_url = (
         "https://docs.google.com/forms/d/e/1FAIpQLScDimvNMCGhy_rmBA2gHfDu3naktRm6A8BPwAWWDv-Uhm6Shw/viewform?c=0&w=1"
     )
-    download_url = "https://drive.google.com/uc?id=0BweDykwS9vIobkVPN0wzRzFwTDg&export=download"
-    zip_name = "Stanford3dDataset_v1.2_Version.zip"
+    # download_url = "https://drive.google.com/drive/folders/0BweDykwS9vIoUG5nNGRjQmFLTGM?resourcekey=0-dHhRVxB0LDUcUVtASUIgTQ&usp=sharingFor"
+    download_url = "https://drive.google.com/file/d/0BweDykwS9vIobkVPN0wzRzFwTDg/view?usp=sharing&resourcekey=0-R6Bs06YHevujFHJOzlzN0Q"
+    zip_name = "Stanford3dDataset_v1.2_Aligned_Version.zip"
     path_file = osp.join(DIR, "s3dis.patch")
-    file_name = "Stanford3dDataset_v1.2"
+    file_name = "Stanford3dDataset_v1.2_Aligned_Version"
     folders = ["Area_{}".format(i) for i in range(1, 7)]
     num_classes = S3DIS_NUM_CLASSES
 
@@ -339,7 +340,9 @@ class S3DISOriginalFused(InMemoryDataset):
 
     def download(self):
         raw_folders = os.listdir(self.raw_dir)
+        
         if len(raw_folders) == 0:
+            # pdb.set_trace()
             if not os.path.exists(osp.join(self.root, self.zip_name)):
                 log.info("WARNING: You are downloading S3DIS dataset")
                 log.info("Please, register yourself by filling up the form at {}".format(self.form_url))
@@ -348,8 +351,11 @@ class S3DISOriginalFused(InMemoryDataset):
                     "Press any key to continue, or CTRL-C to exit. By continuing, you confirm filling up the form."
                 )
                 input("")
+                # pdb.set_trace()
                 gdown.download(self.download_url, osp.join(self.root, self.zip_name), quiet=False)
-            extract_zip(os.path.join(self.root, self.zip_name), self.root)
+            # pdb.set_trace()
+            if not os.path.exists(osp.join(self.root, os.path.splitext(self.zip_name)[0])):
+                extract_zip(os.path.join(self.root, self.zip_name), self.root)
             shutil.rmtree(self.raw_dir)
             os.rename(osp.join(self.root, self.file_name), self.raw_dir)
             shutil.copy(self.path_file, self.raw_dir)

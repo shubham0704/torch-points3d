@@ -2,7 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import fps
+# from torch_geometric.nn import fps
+import torch_points_kernels as tp
 import pdb
 
 def get_edge_features(x, idx):
@@ -80,23 +81,36 @@ class ConditionalFPS(torch.nn.Module):
         dense = (dense - dense.mean())/dense.sum()
         return dense
 
-    def forward(self, x, normals=None, k=10, prefix="train"):
-        ratio = int(x.shape[1]/self.num_to_sample)
+    def _get_ratio_to_sample(self, batch_size) -> float:
+        if hasattr(self, "_ratio"):
+            return self._ratio
+        else:
+            return self._num_to_sample / float(batch_size)
+
+    def forward(self, x, pos):
+        prefix="train"
+        k=10
+        # pos means x,y,z points
+        # x means normals
+        x = x.transpose(1, 2)
+        # ratio = int(self.num_to_sample/pos.shape[1])
         # num_points = int(x.shape[1]*ratio)
         # x -> [1, 2048, 3]
         # feat -> [1, 64, 2048]
-        p_idx = fps(x, ratio)
-        fps_feature = torch.zeros(*x.shape[:2]).cuda()
+        # p_idx = fps(pos, ratio=ratio)
+        p_idx = tp.furthest_point_sample(pos, self.num_to_sample)
+        fps_feature = torch.zeros(*pos.shape[:2]).to(x.device) # [16, 2048]
         fps_feature  = fps_feature.scatter_(1, p_idx.long(), 1)
         fps_feature =  (fps_feature - fps_feature.mean())/fps_feature.sum()
 
-        idxs = knn(x.transpose(1, 2), k)
-        xn = get_edge_features(x.permute(0,2,1)[:,:, None, :], idxs).permute(0, 3, 2, 1)
-        if not normals:
-            pc_with_normals = self.estimate_normals_torch(x, xn) 
+        idxs = knn(pos.transpose(1, 2), k)
+        xn = get_edge_features(pos.permute(0,2,1)[:,:, None, :], idxs).permute(0, 3, 2, 1)
+        if x is None:
+            pc_with_normals = self.estimate_normals_torch(pos, xn) 
             # Note: normals estimation can become performance bottleneck. Do once for whole dataset and keep
         else:
-            pc_with_normals = torch.cat([x, normals], dim=-1)
+            # pdb.set_trace()
+            pc_with_normals = torch.cat([pos, x], dim=-1) # [16, 2048, 6]
         curv = self.curvature(pc_with_normals, xn)
         dense = self.density(pc_with_normals, xn)
         # can add more features in future
@@ -107,7 +121,7 @@ class ConditionalFPS(torch.nn.Module):
         # bottomk = torch.topk(smax, smax.shape[1] - num_points, largest=False,dim=1)
         
         if prefix == "train":
-            point_output = grouping_operation(x.transpose(1,2).contiguous(), 
+            point_output = grouping_operation(pos.transpose(1,2).contiguous(), 
                             topk.indices.unsqueeze(1)).squeeze().transpose(1,2).contiguous()
             
             nbrs = torch.gather(xn, 1, topk.indices[..., None, None].repeat(1, 1, xn.shape[2], xn.shape[3]))
@@ -117,7 +131,7 @@ class ConditionalFPS(torch.nn.Module):
             # TASK - select point with nearest distance from neighborhood and outlier
             # FPS - select farthest point subset
             # FPS + curvature + density - select point based on 3 features, leart a function
-            diff = x[..., None, :].repeat(1,1,xn.shape[2], 1) - xn
+            diff = pos[..., None, :].repeat(1,1,xn.shape[2], 1) - xn
             dists = torch.norm(diff, dim=-1) #* smax[...,None].repeat(1, 1, diff.shape[2])
             dist_loss = dists.max(dim=-1).values + dists.mean(dim=-1)
             # what about distances of bottom k that should be penalised as well
@@ -126,7 +140,7 @@ class ConditionalFPS(torch.nn.Module):
             total_loss = sampling_loss.mean() #+ dist_loss.mean()
             # check if loss.backward() updates any layer in sampling operation
             baseline_nbrs = torch.gather(xn, 1, p_idx[..., None, None].repeat(1, 1, xn.shape[2], xn.shape[3]).long())
-            baseline_pnts = grouping_operation(x.transpose(1,2).contiguous(), 
+            baseline_pnts = grouping_operation(pos.transpose(1,2).contiguous(), 
                             p_idx.unsqueeze(1)).squeeze().transpose(1,2).contiguous()
             baseline_dists = torch.norm(baseline_pnts[..., None, :].repeat(1,1,xn.shape[2], 1) - baseline_nbrs, dim=-1)
             bdist_loss = baseline_dists.max(dim=-1).values + baseline_dists.mean(dim=-1)

@@ -59,7 +59,7 @@ class PointNet2_D(UnetBasedModel):
             self.FC_layer.append(torch.nn.Dropout(p=last_mlp_opt.dropout))
 
         self.FC_layer.append(Conv1D(last_mlp_opt.nn[-1], self._num_classes, activation=None, bias=True, bn=False))
-        self.loss_names = ["loss_seg"]
+        self.loss_names = ["loss_seg", "loss_sample"]
 
         self.visual_names = ["data_visual"]
 
@@ -94,8 +94,9 @@ class PointNet2_D(UnetBasedModel):
             x -- Features [B, C, N]
             pos -- Points [B, N, 3]
         """
-        pdb.set_trace()
+        # pdb.set_trace()
         data = self.model(self.input)
+        self.total_loss = data.sloss
         last_feature = data.x
         if self._use_category:
             cat_one_hot = F.one_hot(self.category, self._num_categories).float().transpose(1, 2)
@@ -109,6 +110,7 @@ class PointNet2_D(UnetBasedModel):
             self.loss_seg = F.cross_entropy(
                 self.output, self.labels, weight=self._weight_classes, ignore_index=IGNORE_LABEL
             )
+            self.total_loss = self.total_loss + self.loss_seg
 
         self.data_visual = self.input
         self.data_visual.y = torch.reshape(self.labels, data.pos.shape[0:2])
@@ -119,7 +121,7 @@ class PointNet2_D(UnetBasedModel):
         """Calculate losses, gradients, and update network weights; called in every training iteration"""
         # caculate the intermediate results if necessary; here self.output has been computed during function <forward>
         # calculate loss given the input and intermediate results
-        self.loss_seg.backward()
+        self.total_loss.backward()
 
 
 class PointNet2_MP(Segmentation_MP):
