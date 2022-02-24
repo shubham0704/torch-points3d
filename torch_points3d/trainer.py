@@ -263,6 +263,7 @@ class Trainer:
                                     self._model.set_input(data, self._device)
                                     with torch.cuda.amp.autocast(enabled=self._model.is_mixed_precision()):
                                         self._model.forward(epoch=epoch)
+                                    
 
                                 with self.profiler_record_function("track/log/visualize"):
                                     self._tracker.track(self._model, data=data, **self.tracker_options)
@@ -352,7 +353,7 @@ class Trainer:
                 if self._cfg.training.cuda > -1
                 else [torch.profiler.ProfilerActivity.CPU],
                 schedule=torch.profiler.schedule(
-                    skip_first=getattr(self._cfg.training.tensorboard.pytorch_profiler, "skip_first", 10),
+                    # skip_first=getattr(self._cfg.training.tensorboard.pytorch_profiler, "skip_first", 10), only available for 1.10+ version
                     wait=getattr(self._cfg.training.tensorboard.pytorch_profiler, "wait", 5),
                     warmup=getattr(self._cfg.training.tensorboard.pytorch_profiler, "warmup", 3),
                     active=getattr(self._cfg.training.tensorboard.pytorch_profiler, "active", 5),
