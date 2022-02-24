@@ -6,7 +6,7 @@ pointnet2:
     class: pointnet2.PointNet2_MP
     conv_type: "MESSAGE_PASSING"
     down_conv:
-        module_name: SAModule
+        module_name: SAModuleMod
         ratios: [0.2, 0.25]
         radius: [0.2, 0.4]
         down_conv_nn: [[FEAT + 3, 64, 64, 128], [128 + 3, 128, 128, 256]]
@@ -33,7 +33,7 @@ pointnet2ms:
     class: pointnet2.PointNet2_MP
     conv_type: "MESSAGE_PASSING"
     down_conv:
-        module_name: SAModule
+        module_name: SAModuleMod
         ratios: [0.25, 0.25]
         radius: [[0.1, 0.2, 0.4], [0.4, 0.8]]
         radius_num_points: [[32, 64, 128], [64, 128]]
