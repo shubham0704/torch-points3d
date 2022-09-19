@@ -1,20 +1,5 @@
 import numpy as np
 import torch
-from torch.nn import (
-    Linear as Lin,
-    ReLU,
-    LeakyReLU,
-    BatchNorm1d as BN,
-    Dropout,
-)
-from torch_geometric.nn import (
-    knn_interpolate,
-    fps,
-    radius,
-    global_max_pool,
-    global_mean_pool,
-    knn,
-)
 from torch_geometric.data import Data
 import torch_points_kernels as tp
 
@@ -24,13 +9,12 @@ from torch_points3d.core.common_modules.dense_modules import MLP2D
 
 from torch_points3d.utils.enums import ConvolutionFormat
 from torch_points3d.utils.model_building_utils.activation_resolver import get_activation
-import pdb
+
 #################### THOSE MODULES IMPLEMENTS THE BASE DENSE CONV API ############################
 
 
 class BaseDenseConvolutionDown(BaseConvolution):
     """Multiscale convolution down (also supports single scale). Convolution kernel is shared accross the scales
-
     Arguments:
         sampler  -- Strategy for sampling the input clouds
         neighbour_finder -- Multiscale strategy for finding neighbours
@@ -47,7 +31,6 @@ class BaseDenseConvolutionDown(BaseConvolution):
         """Implements a Dense convolution where radius_idx represents
         the indexes of the points in x and pos to be agragated into the new feature
         for each point in new_pos
-
         Arguments:
             x -- Previous features [B, C, N]
             pos -- Previous positions [B, N, 3]
@@ -86,81 +69,6 @@ class BaseDenseConvolutionDown(BaseConvolution):
             setattr(new_data, "sampling_id_{}".format(self._index), idx[:, :, 0])
         return new_data
 
-class BaseDenseConvolutionDownMod(BaseConvolution):
-    """Multiscale convolution down (also supports single scale). Convolution kernel is shared accross the scales
-
-    Arguments:
-        sampler  -- Strategy for sampling the input clouds
-        neighbour_finder -- Multiscale strategy for finding neighbours
-    """
-
-    CONV_TYPE = ConvolutionFormat.DENSE.value
-
-    def __init__(self, sampler, neighbour_finder: BaseMSNeighbourFinder, *args, **kwargs):
-        super(BaseDenseConvolutionDownMod, self).__init__(sampler, neighbour_finder, *args, **kwargs)
-        self._index = kwargs.get("index", None)
-        self._save_sampling_id = kwargs.get("save_sampling_id", None)
-
-    def conv(self, x, pos, new_pos, radius_idx, scale_idx):
-        """Implements a Dense convolution where radius_idx represents
-        the indexes of the points in x and pos to be agragated into the new feature
-        for each point in new_pos
-
-        Arguments:
-            x -- Previous features [B, C, N]
-            pos -- Previous positions [B, N, 3]
-            new_pos  -- Sampled positions [B, npoints, 3]
-            radius_idx -- Indexes to group [B, npoints, nsample]
-            scale_idx -- Scale index in multiscale convolutional layers
-        """
-        raise NotImplementedError
-
-    def forward(self, data, sample_idx=None, **kwargs):
-        """
-        Parameters
-        ----------
-        data: Data
-            x -- Previous features [B, C, N]
-            pos -- Previous positions [B, N, 3]
-        sample_idx: Optional[torch.Tensor]
-            can be used to shortcut the sampler [B,K]
-        """
-        # Location 2
-        x, pos = data.x, data.pos
-        # print(x.shape)
-        if sample_idx:
-            idx = sample_idx
-            loss = torch.Tensor([0]).to(x.device)
-        else:
-            if "old_x" not in data:
-                old_x = x
-            else:
-                old_x = data.old_x
-
-            idx, loss = self.sampler(old_x, pos)
-        idx = idx.unsqueeze(-1).repeat(1, 1, pos.shape[-1]).long()
-        new_pos = pos.gather(1, idx)
-        # pdb.set_trace()
-        old_x = old_x.transpose(1, 2).gather(1, idx).transpose(1, 2)
-
-        ms_x = []
-        for scale_idx in range(self.neighbour_finder.num_scales):
-            radius_idx = self.neighbour_finder(pos, new_pos, scale_idx=scale_idx)
-            ms_x.append(self.conv(x, pos, new_pos, radius_idx, scale_idx))
-        new_x = torch.cat(ms_x, 1)
-
-        if "sloss" not in data:
-            sloss = loss[0]
-        else:
-            sloss = loss[0] + data.sloss
-        
-        # here we try to maintain to original normals information 
-        # across layers
-
-        new_data = Data(pos=new_pos, x=new_x, old_x=old_x, sloss=sloss)
-        if self._save_sampling_id:
-            setattr(new_data, "sampling_id_{}".format(self._index), idx[:, :, 0])
-        return new_data
 
 class BaseDenseConvolutionUp(BaseConvolution):
 
@@ -177,12 +85,11 @@ class BaseDenseConvolutionUp(BaseConvolution):
     def forward(self, data, **kwargs):
         """Propagates features from one layer to the next.
         data contains information from the down convs in data_skip
-
         Arguments:
             data -- (data, data_skip)
         """
         data, data_skip = data
-        pos, x, sloss = data.pos, data.x, data.sloss
+        pos, x = data.pos, data.x
         pos_skip, x_skip = data_skip.pos, data_skip.x
 
         new_features = self.conv(pos, pos_skip, x)
@@ -195,7 +102,7 @@ class BaseDenseConvolutionUp(BaseConvolution):
         if hasattr(self, "nn"):
             new_features = self.nn(new_features)
 
-        return Data(x=new_features.squeeze(-1), pos=pos_skip, sloss=sloss)
+        return Data(x=new_features.squeeze(-1), pos=pos_skip)
 
 
 class DenseFPModule(BaseDenseConvolutionUp):
@@ -242,7 +149,7 @@ class GlobalDenseBaseModule(torch.nn.Module):
         return self._nb_params
 
     def forward(self, data, **kwargs):
-        x, pos, sloss = data.x, data.pos, data.sloss
+        x, pos = data.x, data.pos
         pos_flipped = pos.transpose(1, 2).contiguous()
 
         x = self.nn(torch.cat([x, pos_flipped], dim=1).unsqueeze(-1))
@@ -256,7 +163,7 @@ class GlobalDenseBaseModule(torch.nn.Module):
 
         pos = None  # pos.mean(1).unsqueeze(1)
         x = x.unsqueeze(-1)
-        return Data(x=x, pos=pos, sloss=sloss)
+        return Data(x=x, pos=pos)
 
     def __repr__(self):
         return "{}: {} (aggr={}, {})".format(self.__class__.__name__, self.nb_params, self._aggr, self.nn)

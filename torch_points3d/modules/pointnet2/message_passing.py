@@ -3,13 +3,21 @@ from torch_geometric.nn import PointConv
 from torch_points3d.core.base_conv.base_conv import *
 from torch_points3d.core.base_conv.message_passing import *
 from torch_points3d.core.common_modules.base_modules import *
-from torch_points3d.core.spatial_ops import FPSSampler, RandomSampler, MultiscaleRadiusNeighbourFinder
+from torch_points3d.core.spatial_ops import (FPSSampler, ConditionalFPS, 
+RandomSampler, MultiscaleRadiusNeighbourFinder, GridSampler, DenseFPSSampler)
 
+samplers = {
+    "fps": FPSSampler,
+    "cfps": ConditionalFPS,
+    "grid": GridSampler,
+    "dense_fps": DenseFPSSampler
+}
+    
 
 class SAModule(BaseMSConvolutionDown):
-    def __init__(self, ratio=None, radius=None, radius_num_point=None, down_conv_nn=None, *args, **kwargs):
+    def __init__(self, ratio=None, sampler='fps', radius=None, radius_num_point=None, down_conv_nn=None, *args, **kwargs):
         super(SAModule, self).__init__(
-            FPSSampler(ratio=ratio),
+            samplers[sampler](ratio=ratio),
             MultiscaleRadiusNeighbourFinder(radius, max_num_neighbors=radius_num_point),
             *args,
             **kwargs
@@ -32,9 +40,9 @@ class SAModule(BaseMSConvolutionDown):
 
 
 class SAModuleMod(BaseMSConvolutionDownMod):
-    def __init__(self, ratio=None, radius=None, radius_num_point=None, down_conv_nn=None, *args, **kwargs):
+    def __init__(self, ratio=None, sampler='fps', radius=None, radius_num_point=None, down_conv_nn=None, *args, **kwargs):
         super(SAModuleMod, self).__init__(
-            ConditionalFPS(ratio=ratio),
+            samplers[sampler](ratio=ratio),
             MultiscaleRadiusNeighbourFinder(radius, max_num_neighbors=radius_num_point),
             *args,
             **kwargs

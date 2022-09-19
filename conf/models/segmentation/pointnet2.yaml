@@ -7,6 +7,7 @@ pointnet2:
     conv_type: "MESSAGE_PASSING"
     down_conv:
         module_name: SAModuleMod
+        sampler: dense_fps
         ratios: [0.2, 0.25]
         radius: [0.2, 0.4]
         down_conv_nn: [[FEAT + 3, 64, 64, 128], [128 + 3, 128, 128, 256]]
@@ -34,6 +35,7 @@ pointnet2ms:
     conv_type: "MESSAGE_PASSING"
     down_conv:
         module_name: SAModuleMod
+        sampler: dense_fps
         ratios: [0.25, 0.25]
         radius: [[0.1, 0.2, 0.4], [0.4, 0.8]]
         radius_num_points: [[32, 64, 128], [64, 128]]
@@ -62,6 +64,7 @@ pointnet2_largemsg:
     use_category: ${data.use_category}
     down_conv:
         module_name: PointNetMSGDown
+        sampler: dense_fps
         npoint: [1024, 256, 64, 16]
         radii: [[0.05, 0.1], [0.1, 0.2], [0.2, 0.4], [0.4, 0.8]]
         nsamples: [[16, 32], [16, 32], [16, 32], [16, 32]]
@@ -98,6 +101,7 @@ pointnet2_charlesmsg:
     use_category: ${data.use_category}
     down_conv:
         module_name: PointNetMSGDown
+        sampler: fps
         npoint: [512, 128]
         radii: [[0.1, 0.2, 0.4], [0.4, 0.8]]
         nsamples: [[32, 64, 128], [64, 128]]
@@ -135,6 +139,7 @@ pointnet2_charlesssg:
     use_category: ${data.use_category}
     down_conv:
         module_name: PointNetMSGDown
+        sampler: dense_fps
         npoint: [512, 128]
         radii: [[0.2], [0.4]]
         nsamples: [[64], [64]]
@@ -160,6 +165,7 @@ pointnet2_indoor:
     conv_type: "DENSE"
     down_conv:
         module_name: PointNetMSGDown
+        sampler: dense_fps
         npoint: [2048, 1024, 512, 256]
         radii: [[0.1, 0.2], [0.2, 0.4], [0.4, 0.8], [0.8, 1.6]]
         nsamples: [[32, 64], [16, 32], [16, 32], [16, 32]]

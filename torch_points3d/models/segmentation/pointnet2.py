@@ -96,7 +96,7 @@ class PointNet2_D(UnetBasedModel):
         """
         # pdb.set_trace()
         data = self.model(self.input)
-        self.total_loss = data.sloss
+        self.total_loss = 0
         last_feature = data.x
         if self._use_category:
             cat_one_hot = F.one_hot(self.category, self._num_categories).float().transpose(1, 2)

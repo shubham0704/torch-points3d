@@ -4,7 +4,7 @@ epochs: 100
 num_workers: 6
 batch_size: 2
 shuffle: True
-cuda: -1 # -1 -> no cuda otherwise takes the specified index
+cuda: 0 # -1 -> no cuda otherwise takes the specified index
 precompute_multi_scale: False # Compute multiscate features on cpu for faster training / inference
 optim:
   base_lr: 0.001

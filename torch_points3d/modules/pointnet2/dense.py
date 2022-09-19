@@ -4,18 +4,29 @@ import torch.nn.functional as F
 import torch_points_kernels as tp
 
 from torch_points3d.core.base_conv.dense import *
-from torch_points3d.core.spatial_ops import DenseRadiusNeighbourFinder, ConditionalFPS
+from torch_points3d.core.spatial_ops import (DenseRadiusNeighbourFinder, ConditionalFPS, 
+    FPSSampler, GridSampler, DenseFPSSampler)
 
 from torch_points3d.utils.model_building_utils.activation_resolver import get_activation
 
+import pdb
 
-class PointNetMSGDown(BaseDenseConvolutionDownMod):
+samplers = {
+    "fps": FPSSampler,
+    "cfps": ConditionalFPS,
+    "grid": GridSampler,
+    "dense_fps": DenseFPSSampler
+}
+    
+
+class PointNetMSGDown(BaseDenseConvolutionDown):
     def __init__(
         self,
         npoint=None,
         radii=None,
         nsample=None,
         down_conv_nn=None,
+        sampler='fps',
         bn=True,
         activation=torch.nn.LeakyReLU(negative_slope=0.01),
         use_xyz=True,
@@ -24,7 +35,7 @@ class PointNetMSGDown(BaseDenseConvolutionDownMod):
     ):
         assert len(radii) == len(nsample) == len(down_conv_nn)
         super(PointNetMSGDown, self).__init__(
-            ConditionalFPS(num_to_sample=npoint), DenseRadiusNeighbourFinder(radii, nsample), **kwargs
+            samplers[sampler](num_to_sample=npoint), DenseRadiusNeighbourFinder(radii, nsample), **kwargs
         )
         self.use_xyz = use_xyz
         self.npoint = npoint
